@@ -319,37 +319,6 @@
             padding: 0 10px;
         }
     }
-    /* Add some styles for the select element */
-    select {
-        width: 100%;
-        padding: 12px;
-        border: 2px solid #444;
-        border-radius: 4px;
-        font-size: 1.1em;
-        margin: 10px 0;
-        background-color: #3d3d3d;
-        color: white;
-    }
-
-    select option {
-        background-color: #3d3d3d;
-        color: white;
-        padding: 8px;
-    }
-
-    /* Progress bar adjustments for tree calculation pages */
-    #tree1 .progress-bar .progress-fill {
-        width: 33%;  /* First step of three */
-    }
-
-    #tree2 .progress-bar .progress-fill {
-        width: 66%;  /* Second step of three */
-    }
-
-    #treeWoodType .progress-bar .progress-fill,
-    #treeResult .progress-bar .progress-fill {
-        width: 100%;  /* Final step */
-    }
 </style>
 <script>
 function toggleFullScreen() {
@@ -438,11 +407,8 @@ function showPage(pageNum) {
 }
 
 function startCalculator() {
-    showPage(1);
-}
-
-function startTreeCalculator() {
-    showPage('tree1');
+    document.getElementById('landing').classList.remove('active');
+    document.getElementById('page1').classList.add('active');
 }
 
 function goBack() {
@@ -454,102 +420,261 @@ function goBack() {
     }
 }
 
-function validateTreeLength() {
-    const length = document.getElementById('stammlaenge').value;
-    if (length && parseFloat(length) > 0) {
-        showPage('tree2');
-    } else {
-        alert('Bitte geben Sie eine gültige Stammlänge ein.');
-    }
-}
-
 function selectMassMethod(method) {
-    if (method === 'direct') {
-        showPage('1a');
-    } else {
-        showPage('2a');
-    }
-}
-
-function validateAndContinue() {
-    const masse = document.getElementById('masse').value;
-    const unit = document.querySelector('input[name="unit"]:checked');
+    const inputs = [
+        'achsen',
+        'fahrzeugtyp', 
+        'gesamtachsen',
+        'doppelachsen',
+        'beladung',
+        'gebremsteAchsen',
+        'untergrund',
+        'steigung',
+        'masse'
+    ];
     
-    if (masse && unit) {
-        showPage('1b');
-    } else {
-        alert('Bitte geben Sie die Masse und Einheit ein.');
+    inputs.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.value = '';
+        }
+    });
+    
+    const kgRadio = document.getElementById('kg');
+    if (kgRadio) {
+        kgRadio.checked = false;
+    }
+
+    document.querySelectorAll('.number-button').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+
+    pageHistory = ['page1'];
+    if (method === 'direct') {
+        showPage('page1a');
+    } else if (method === 'estimate') {
+        showPage('page2a');
     }
 }
 
-let currentMeasurement = 'umfang';
+function selectType(type) {
+    selectButtonAndSetValue('fahrzeugtyp', type);
+    
+    if (type === 'pkw') {
+        document.getElementById('gesamtachsen').value = '2';
+        document.getElementById('doppelachsen').value = '0';
+        showPage('page2d');
+    } else if (type === 'transporter') {
+        document.getElementById('gesamtachsen').value = '2'; 
+        document.getElementById('doppelachsen').value = '0';
+        showPage('page2d');
+    } else if (type === 'lkw_klein') {
+        document.getElementById('gesamtachsen').value = '2';
+        document.getElementById('doppelachsen').value = '1';
+        showPage('page2d');
+    } else {
+        showPage('page2b');
+    }
+}
 
-function switchMeasurement(type) {
-    currentMeasurement = type;
-    const label = document.getElementById('measurement-label');
-    document.querySelectorAll('#tree2 .number-button').forEach(btn => {
+function selectGesamtachsen(num) {
+    selectButtonAndSetValue('gesamtachsen', num);
+    
+    const doppelachsenButtons = document.getElementById('doppelachsenButtons');
+    doppelachsenButtons.innerHTML = '';
+    const maxDoppel = num - 1;
+    for (let i = 0; i <= maxDoppel; i++) {
+        doppelachsenButtons.innerHTML += `<button class="number-button" onclick="selectDoppelachsen(${i})">${i}</button>`;
+    }
+    showPage('page2c');
+}
+
+function selectDoppelachsen(num) {
+    selectButtonAndSetValue('doppelachsen', num);
+    showPage('page2d');
+}
+
+function selectLoad(load) {
+    selectButtonAndSetValue('beladung', load);
+    const estimatedMass = calculateEstimatedMass();
+    document.getElementById('masse').value = (estimatedMass / 1000).toFixed(2);
+    document.getElementById('t').checked = true;
+    
+    const gesamtachsen = parseInt(document.getElementById('gesamtachsen').value);
+    document.getElementById('achsen').value = gesamtachsen;
+    
+    const gebremsteButtons = document.getElementById('gebremsteAchsenButtons');
+    gebremsteButtons.innerHTML = '';
+    for (let i = 0; i <= gesamtachsen; i++) {
+        gebremsteButtons.innerHTML += `<button class="number-button" onclick="selectGebremsteAchsen(${i})">${i}</button>`;
+    }
+    showPage(3);
+}
+
+function selectGebremsteAchsen(number) {
+    document.querySelectorAll('#page3 .number-button').forEach(btn => {
         btn.classList.remove('selected');
     });
     event.target.classList.add('selected');
-    
-    label.textContent = type === 'umfang' ? 'Stammumfang (cm):' : 'Stammdurchmesser (cm):';
+    document.getElementById('gebremsteAchsen').value = number;
+    showPage(4);
 }
 
-function calculateTreeVolume() {
-    const length = parseFloat(document.getElementById('stammlaenge').value);
-    const measurement = parseFloat(document.getElementById('stammMass').value);
+function selectUntergrund(type) {
+    selectButtonAndSetValue('untergrund', type);
+    showPage(5);
+}
+
+function selectSteigung(value) {
+    document.querySelectorAll('#page5 .number-button').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    event.target.classList.add('selected');
+    document.getElementById('steigung').value = value;
+    berechneZugkraft();
+}
+
+function berechneZugkraft() {
+    const masse = getMasseInKg();
+    const achsen = parseInt(document.getElementById('achsen').value);
+    const gebremsteAchsen = parseInt(document.getElementById('gebremsteAchsen').value);
+    const untergrund = document.getElementById('untergrund').value;
+    const steigung = parseFloat(document.getElementById('steigung').value);
+
+    const reibungskoeffizienten = {
+        strasse: 25,
+        kies: 1,
+        rasen: 3
+    };
+
+    const zugkraft = ((masse / reibungskoeffizienten[untergrund]) + 
+                     (masse * steigung / 60) + 
+                     (masse * gebremsteAchsen / achsen)) / 1000;
+
+    document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
     
-    if (!measurement || measurement <= 0) {
-        alert('Bitte geben Sie gültige Maße ein.');
-        return;
-    }
+    const resultDiv = document.getElementById('result');
+    resultDiv.classList.add('active');
     
-    let radius;
-    if (currentMeasurement === 'umfang') {
-        radius = measurement / (2 * Math.PI);
+    let zugkraftDisplay;
+    if (zugkraft < 1) {
+        zugkraftDisplay = `${(zugkraft * 1000).toFixed(0)} kg`;
     } else {
-        radius = measurement / 2;
+        zugkraftDisplay = `${zugkraft.toFixed(2)} t`;
     }
+
+    let resultContent = `
+        <h1>Ergebnis</h1>
+        
+        <div class="formula" style="background-color: #2196F3; margin: 20px 0;">
+            <h2 style="margin-top: 0; color: white;">Benötigte Zugkraft (geschätzt):</h2>
+            <p style="font-size: 24px; margin: 10px 0; color: white;">${zugkraftDisplay}</p>
+        </div>
+        
+        <p style="color: #ff4444; font-size: 14px; margin: 20px 0; padding: 10px; border: 1px solid #ff4444; border-radius: 4px;">
+            Hinweis: Bei dem berechneten Wert handelt es sich um einen Schätzwert zur groben Orientierung. 
+            Der Kranmaschinist trägt die volle Verantwortung für sein Handeln und muss die örtlichen 
+            Gegebenheiten sowie weitere Einflussfaktoren eigenständig bewerten.
+        </p>
+    `;
+
+    if (steigung > 30) {
+        resultContent += '<p style="color: red;"><strong>Achtung: Steigung über 30% - Extreme Vorsicht geboten!</strong></p>';
+    }
+
+    resultContent += '<div class="navigation"><button onclick="resetCalculator()">Neue Berechnung</button></div>';
     
-    const volume = Math.PI * Math.pow(radius/100, 2) * length;
-    
-    // Store volume for later use
-    window.treeVolume = volume;
-    
-    // Show wood type selection
-    showPage('treeWoodType');
+    resultDiv.innerHTML = resultContent;
 }
 
-// Add new function to calculate final weight
-function calculateTreeWeight() {
-    const woodType = document.getElementById('woodType');
-    const selectedOption = woodType.options[woodType.selectedIndex];
+function resetCalculator() {
+    document.getElementById('achsen').value = '';
+    document.getElementById('fahrzeugtyp').value = '';
+    document.getElementById('gesamtachsen').value = '';
+    document.getElementById('doppelachsen').value = '';
+    document.getElementById('beladung').value = '';
+    document.getElementById('gebremsteAchsen').value = '';
+    document.getElementById('untergrund').value = '';
+    document.getElementById('steigung').value = '';
+    document.getElementById('masse').value = '';
     
-    if (!woodType.value) {
-        alert('Bitte wählen Sie eine Holzart aus.');
+    document.querySelectorAll('.number-button').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    
+    pageHistory = [];
+    showPage('landing');
+}
+
+function getMasseInKg() {
+    const masseValue = parseFloat(document.getElementById('masse').value);
+    const unit = document.querySelector('input[name="unit"]:checked').value;
+    return unit === 't' ? masseValue * 1000 : masseValue;
+}
+
+function selectButtonAndSetValue(inputId, value) {
+    const buttonGroup = event.target.parentElement;
+    buttonGroup.querySelectorAll('.number-button').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    event.target.classList.add('selected');
+    document.getElementById(inputId).value = value;
+}
+
+function calculateEstimatedMass() {
+    const fahrzeugtyp = document.getElementById('fahrzeugtyp').value;
+    const gesamtachsen = parseInt(document.getElementById('gesamtachsen').value);
+    const doppelachsen = parseInt(document.getElementById('doppelachsen').value);
+    const beladung = document.getElementById('beladung').value;
+    
+    const typeFactors = {
+        'pkw': 4.8,
+        'transporter': 2.42,
+        'lkw_klein': 1.35,
+        'lkw_gross': 1
+    };
+    
+    const loadFactors = {
+        'leer': 0.5,
+        'halb': 0.75,
+        'voll': 1
+    };
+    
+    const einzelachsen = gesamtachsen - (doppelachsen * 2);
+    
+    const masse = (((einzelachsen * 6000) / typeFactors[fahrzeugtyp]) + 
+                  ((doppelachsen * 12000) / typeFactors[fahrzeugtyp])) * 
+                 loadFactors[beladung];
+    
+    return masse;
+}
+
+function validateAndContinue() {
+    const masseInput = document.getElementById('masse');
+    const unitSelected = document.querySelector('input[name="unit"]:checked');
+    
+    if (!unitSelected) {
+        alert('Bitte wählen Sie eine Einheit (kg oder t) aus.');
         return;
     }
     
-    const density = parseFloat(woodType.value);
-    const volume = window.treeVolume;
-    const weight = volume * density;
-    
-    document.getElementById('volumeResult').innerHTML = `
-        Stammvolumen: ${volume.toFixed(2)} m³<br>
-        Holzart: ${selectedOption.text}<br>
-        Geschätztes Gewicht: ${weight.toFixed(0)} kg
-    `;
-    
-    showPage('treeResult');
+    if (masseInput.value && parseFloat(masseInput.value) > 0) {
+        showPage('page1b'); // Show new axle selection page instead of going directly to page 3
+    } else {
+        alert('Bitte geben Sie eine gültige Masse ein.');
+    }
 }
 
-// Update resetTreeCalculator to also reset wood type
-function resetTreeCalculator() {
-    document.getElementById('stammlaenge').value = '';
-    document.getElementById('stammMass').value = '';
-    document.getElementById('woodType').value = '';
-    window.treeVolume = null;
-    showPage('landing');
+// Add new function for axle selection
+function selectDirectAxles(number) {
+    document.getElementById('achsen').value = number;
+    
+    const gebremsteButtons = document.getElementById('gebremsteAchsenButtons');
+    gebremsteButtons.innerHTML = '';
+    for (let i = 0; i <= number; i++) {
+        gebremsteButtons.innerHTML += `<button class="number-button" onclick="selectGebremsteAchsen(${i})">${i}</button>`;
+    }
+    showPage(3);
 }
 
 // Add event listener for page visibility changes
@@ -569,10 +694,7 @@ document.addEventListener('visibilitychange', function() {
     <p style="color: #ff4444; font-size: 14px; margin: 20px 0; padding: 10px; border: 1px solid #ff4444; border-radius: 4px;">
         Hinweis: Bei den berechneten Werten handelt es sich um Schätzwerte zur groben Orientierung. Der Kranmaschinist trägt die volle Verantwortung für sein Handeln und muss die örtlichen Gegebenheiten sowie weitere Einflussfaktoren eigenständig bewerten.
     </p>
-    <div style="display: flex; flex-direction: column; gap: 15px; max-width: 300px; margin: 0 auto;">
-        <button class="start-button" onclick="startCalculator()">Zugkraftberechnung</button>
-        <button class="start-button" style="background-color: #2196F3;" onclick="startTreeCalculator()">Baumberechnung</button>
-    </div>
+    <button class="start-button" onclick="startCalculator()">Berechnung starten</button>
     <div class="copyright">
         © 2024 Feuerwehr Hannover - Feuer- und Rettungswache 5 by Benjamin Kreitz
     </div>
@@ -807,95 +929,7 @@ document.addEventListener('visibilitychange', function() {
     </div>
 
     <div id="result" class="page"></div>
+</div>
 
-    <!-- New pages for tree calculation -->
-    <div id="tree1" class="page">
-        <div class="progress-bar">
-            <div class="progress-fill" style="width: 33%"></div>
-        </div>
-        <h1>Stammlänge</h1>
-        <div class="form-group">
-            <label for="stammlaenge">Stammlänge:</label>
-            <div class="unit-group">
-                <input type="number" id="stammlaenge" min="0" step="0.1" required>
-                <div class="unit-selector">
-                    <label>m</label>
-                </div>
-            </div>
-        </div>
-        <div class="navigation">
-            <button onclick="showPage('landing')">Zurück</button>
-            <button onclick="validateTreeLength()">Weiter</button>
-        </div>
-    </div>
-
-    <div id="tree2" class="page">
-        <div class="progress-bar">
-            <div class="progress-fill" style="width: 66%"></div>
-        </div>
-        <h1>Stammmaße</h1>
-        <div class="form-group">
-            <div class="button-group" style="margin-bottom: 20px;">
-                <button class="number-button" onclick="switchMeasurement('umfang')">Umfang</button>
-                <button class="number-button" onclick="switchMeasurement('durchmesser')">Durchmesser</button>
-            </div>
-            <div id="measurement-input" class="unit-group">
-                <label id="measurement-label" for="stammMass"></label>
-                <input type="number" id="stammMass" min="0" step="0.1" required>
-                <div class="unit-selector">
-                    <label>cm</label>
-                </div>
-            </div>
-        </div>
-        <div class="navigation">
-            <button onclick="goBack()">Zurück</button>
-            <button onclick="calculateTreeVolume()">Weiter</button>
-        </div>
-    </div>
-
-    <div id="treeWoodType" class="page">
-        <div class="progress-bar">
-            <div class="progress-fill" style="width: 100%"></div>
-        </div>
-        <h1>Holzart auswählen</h1>
-        <div class="form-group">
-            <label for="woodType">Holzart:</label>
-            <select id="woodType" required>
-                <option value="">Bitte wählen...</option>
-                <option value="960">Ahorn (960 kg/m³)</option>
-                <option value="840">Apfelbaum (840 kg/m³)</option>
-                <option value="830">Birke (830 kg/m³)</option>
-                <option value="910">Buche (910 kg/m³)</option>
-                <option value="770">Douglasie (770 kg/m³)</option>
-                <option value="930">Eiche (930 kg/m³)</option>
-                <option value="600">Erle (600 kg/m³)</option>
-                <option value="860">Esche (860 kg/m³)</option>
-                <option value="470">Fichte (470 kg/m³)</option>
-                <option value="520">Kiefer (520 kg/m³)</option>
-                <option value="670">Kirsche (670 kg/m³)</option>
-                <option value="590">Lärche (590 kg/m³)</option>
-                <option value="600">Linde (600 kg/m³)</option>
-                <option value="650">Nussbaum (650 kg/m³)</option>
-                <option value="450">Tanne (450 kg/m³)</option>
-                <option value="900">Zwetschge (900 kg/m³)</option>
-            </select>
-        </div>
-        <div class="navigation">
-            <button onclick="goBack()">Zurück</button>
-            <button onclick="calculateTreeWeight()">Berechnen</button>
-        </div>
-    </div>
-
-    <div id="treeResult" class="page">
-        <h1>Berechnetes Volumen</h1>
-        <div style="color: #ff4444; font-size: 14px; margin: 20px 0; padding: 10px; border: 1px solid #ff4444; border-radius: 4px;">
-            Hinweis: Bei den berechneten Werten handelt es sich um Schätzwerte zur groben Orientierung. Die tatsächlichen Werte können aufgrund verschiedener Faktoren wie Feuchtigkeit, Alter und Form des Stammes abweichen.
-        </div>
-        <div class="formula" style="background-color: #2196F3; margin: 20px 0;">
-            <h2 style="margin-top: 0; color: white;">Stammvolumen:</h2>
-            <p id="volumeResult" style="font-size: 24px; margin: 10px 0; color: white;"></p>
-        </div>
-        <div class="navigation">
-            <button onclick="resetTreeCalculator()">Neue Berechnung</button>
-        </div>
+</body>
 </html>
